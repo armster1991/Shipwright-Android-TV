@@ -662,6 +662,17 @@ public boolean dispatchKeyEvent(KeyEvent event) {
     int keyCode = event.getKeyCode();
     boolean pressed = event.getAction() == KeyEvent.ACTION_DOWN;
 
+    // D-pad para cima também aciona C-Up/Navi.
+if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+    setAxis(
+            ControllerButtons.AXIS_RY,
+            pressed ? Short.MIN_VALUE : (short) 0
+    );
+
+    // Continua enviando o D-pad para cima normalmente ao SDL.
+    return super.dispatchKeyEvent(event);
+}
+
     // Botão HOME/PS: abre o menu de melhorias.
     if (keyCode == KeyEvent.KEYCODE_BUTTON_MODE) {
         setButton(ControllerButtons.BUTTON_BACK, pressed);
