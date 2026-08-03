@@ -180,11 +180,13 @@ public class MainActivity extends SDLActivity{
         File targetRootFolder = new File(Environment.getExternalStorageDirectory(), "SOH");
         File assetsFolder = new File(targetRootFolder, "assets");
         File sohOtrFile = new File(targetRootFolder, "soh.otr");
+        File configFile = new File(targetRootFolder, "shipofharkinian.json");
 
         boolean isMissingAssets = !assetsFolder.exists() || assetsFolder.listFiles() == null || assetsFolder.listFiles().length == 0;
         boolean isMissingSohOtr = !sohOtrFile.exists();
+        boolean isMissingConfig = !configFile.exists();
 
-        if (!targetRootFolder.exists() || isMissingAssets || isMissingSohOtr) {
+        if (!targetRootFolder.exists() || isMissingAssets || isMissingSohOtr || isMissingConfig) {
             new AlertDialog.Builder(this)
                     .setTitle("Setup Required")
                     .setMessage("Some required files are missing. The app will create them (~1 minute). Press OK to begin.")
