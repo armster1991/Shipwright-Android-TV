@@ -31,6 +31,7 @@ import android.widget.Button;
 import android.widget.FrameLayout;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
+import android.view.KeyEvent;
 import android.view.View;
 import android.widget.ImageView;
 
@@ -42,6 +43,8 @@ public class MainActivity extends SDLActivity{
 
     SharedPreferences preferences;
     private static final CountDownLatch setupLatch = new CountDownLatch(1);
+    private boolean leftStickPressed = false;
+    private boolean rightStickPressed = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -591,42 +594,102 @@ public class MainActivity extends SDLActivity{
                             // Clamp the joystick movement to prevent it from going outside the area
                             float maxRadius = joystickLayout.getWidth() / 2f - joystickKnob.getWidth() / 2f;
                             float distance = (float) Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
                             if (distance > maxRadius) {
                                 float scale = maxRadius / distance;
                                 deltaX *= scale;
                                 deltaY *= scale;
                             }
 
-                            joystickKnob.setX(joystickCenterX + deltaX - joystickKnob.getWidth() / 2f);
-                            joystickKnob.setY(joystickCenterY + deltaY - joystickKnob.getHeight() / 2f);
+                            joystickKnob.setX(
+                                    joystickCenterX + deltaX - joystickKnob.getWidth() / 2f
+                            );
+
+                            joystickKnob.setY(
+                                    joystickCenterY + deltaY - joystickKnob.getHeight() / 2f
+                            );
 
                             // Send joystick values to native C code
                             short x = (short) (deltaX / maxRadius * Short.MAX_VALUE);
                             short y = (short) (deltaY / maxRadius * Short.MAX_VALUE);
 
                             // Send X-axis and Y-axis values
-                            setAxis(isLeft ? ControllerButtons.AXIS_LX : ControllerButtons.AXIS_RX, x); // X-axis
-                            setAxis(isLeft ? ControllerButtons.AXIS_LY : ControllerButtons.AXIS_RY, y); // Y-axis
+                            setAxis(
+                                    isLeft ? ControllerButtons.AXIS_LX : ControllerButtons.AXIS_RX,
+                                    x
+                            );
+
+                            setAxis(
+                                    isLeft ? ControllerButtons.AXIS_LY : ControllerButtons.AXIS_RY,
+                                    y
+                            );
+
                             break;
 
                         case MotionEvent.ACTION_UP:
                         case MotionEvent.ACTION_CANCEL:
-                            // Reset joystick knob to the center position (ensure it's placed correctly)
-                            joystickKnob.setX(joystickCenterX - joystickKnob.getWidth() / 2f);
-                            joystickKnob.setY(joystickCenterY - joystickKnob.getHeight() / 2f);
+                            // Reset joystick knob to the center position
+                            joystickKnob.setX(
+                                    joystickCenterX - joystickKnob.getWidth() / 2f
+                            );
 
-                            // Reset joystick values to 0 when released or canceled
-                            setAxis(isLeft ? ControllerButtons.AXIS_LX : ControllerButtons.AXIS_RX, (short) 0); // X-axis
-                            setAxis(isLeft ? ControllerButtons.AXIS_LY : ControllerButtons.AXIS_RY, (short) 0); // Y-axis
+                            joystickKnob.setY(
+                                    joystickCenterY - joystickKnob.getHeight() / 2f
+                            );
+
+                            // Reset joystick values to 0
+                            setAxis(
+                                    isLeft ? ControllerButtons.AXIS_LX : ControllerButtons.AXIS_RX,
+                                    (short) 0
+                            );
+
+                            setAxis(
+                                    isLeft ? ControllerButtons.AXIS_LY : ControllerButtons.AXIS_RY,
+                                    (short) 0
+                            );
+
                             break;
                     }
+
                     return true;
                 }
             });
         });
-
-
     }
 
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        int keyCode = event.getKeyCode();
+        boolean pressed = event.getAction() == KeyEvent.ACTION_DOWN;
 
+        // Botão HOME/PS: abre o menu de melhorias.
+        if (keyCode == KeyEvent.KEYCODE_BUTTON_MODE) {
+            setButton(ControllerButtons.BUTTON_BACK, pressed);
+            return true;
+        }
+
+        // Estado do L3.
+        if (keyCode == KeyEvent.KEYCODE_BUTTON_THUMBL) {
+            leftStickPressed = pressed;
+
+            if (leftStickPressed && rightStickPressed) {
+                finishAndRemoveTask();
+            }
+
+            return true;
+        }
+
+        // Estado do R3.
+        if (keyCode == KeyEvent.KEYCODE_BUTTON_THUMBR) {
+            rightStickPressed = pressed;
+
+            if (leftStickPressed && rightStickPressed) {
+                finishAndRemoveTask();
+            }
+
+            return true;
+        }
+
+        return super.dispatchKeyEvent(event);
+    }
 }
