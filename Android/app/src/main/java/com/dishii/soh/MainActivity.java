@@ -284,6 +284,35 @@ public class MainActivity extends SDLActivity{
             runOnUiThread(() -> Toast.makeText(this, "Error copying soh.otr", Toast.LENGTH_LONG).show());
         }
 
+// Copy the default configuration only if the user does not already have one.
+File targetConfigFile = new File(targetRootFolder, "shipofharkinian.json");
+
+if (!targetConfigFile.exists()) {
+    try (InputStream in = getAssets().open("shipofharkinian.json");
+         OutputStream out = new FileOutputStream(targetConfigFile)) {
+
+        byte[] buffer = new byte[4096];
+        int read;
+
+        while ((read = in.read(buffer)) != -1) {
+            out.write(buffer, 0, read);
+        }
+
+        Log.i("setupFiles", "Default shipofharkinian.json copied");
+
+    } catch (IOException e) {
+        Log.e("setupFiles", "Failed to copy default shipofharkinian.json", e);
+
+        runOnUiThread(() ->
+                Toast.makeText(
+                        this,
+                        "Error copying default configuration",
+                        Toast.LENGTH_LONG
+                ).show()
+        );
+    }
+}
+        
         setupLatch.countDown();
     }
 
