@@ -657,39 +657,41 @@ public class MainActivity extends SDLActivity{
         });
     }
 
-    @Override
-    public boolean dispatchKeyEvent(KeyEvent event) {
-        int keyCode = event.getKeyCode();
-        boolean pressed = event.getAction() == KeyEvent.ACTION_DOWN;
+@Override
+public boolean dispatchKeyEvent(KeyEvent event) {
+    int keyCode = event.getKeyCode();
+    boolean pressed = event.getAction() == KeyEvent.ACTION_DOWN;
 
-        // Botão HOME/PS: abre o menu de melhorias.
-        if (keyCode == KeyEvent.KEYCODE_BUTTON_MODE) {
-            setButton(ControllerButtons.BUTTON_BACK, pressed);
-            return true;
-        }
+    // Botão HOME/PS: abre o menu de melhorias.
+    if (keyCode == KeyEvent.KEYCODE_BUTTON_MODE) {
+        setButton(ControllerButtons.BUTTON_BACK, pressed);
+        return true;
+    }
 
-        // Estado do L3.
-        if (keyCode == KeyEvent.KEYCODE_BUTTON_THUMBL) {
-            leftStickPressed = pressed;
+    // Registra o estado do L3, mas mantém seu funcionamento normal.
+    if (keyCode == KeyEvent.KEYCODE_BUTTON_THUMBL) {
+        leftStickPressed = pressed;
 
-            if (leftStickPressed && rightStickPressed) {
-                finishAndRemoveTask();
-            }
-
-            return true;
-        }
-
-        // Estado do R3.
-        if (keyCode == KeyEvent.KEYCODE_BUTTON_THUMBR) {
-            rightStickPressed = pressed;
-
-            if (leftStickPressed && rightStickPressed) {
-                finishAndRemoveTask();
-            }
-
+        if (pressed && rightStickPressed) {
+            finishAndRemoveTask();
             return true;
         }
 
         return super.dispatchKeyEvent(event);
     }
+
+    // Registra o estado do R3, mas mantém seu funcionamento normal.
+    if (keyCode == KeyEvent.KEYCODE_BUTTON_THUMBR) {
+        rightStickPressed = pressed;
+
+        if (pressed && leftStickPressed) {
+            finishAndRemoveTask();
+            return true;
+        }
+
+        return super.dispatchKeyEvent(event);
+    }
+
+    return super.dispatchKeyEvent(event);
+}
 }
