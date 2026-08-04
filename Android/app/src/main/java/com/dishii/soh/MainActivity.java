@@ -75,63 +75,15 @@ public class MainActivity extends SDLActivity{
         }
     }
 
-    private void doVersionCheck(){
+    private void doVersionCheck() {
         int currentVersion = BuildConfig.VERSION_CODE;
         int storedVersion = preferences.getInt("appVersion", 1);
 
         if (currentVersion > storedVersion) {
-            deleteOutdatedAssets();
+            // Never delete user files or generated OTR files during an app update.
             preferences.edit().putInt("appVersion", currentVersion).apply();
         }
     }
-
-    private void deleteOutdatedAssets() {
-        File targetRootFolder = new File(Environment.getExternalStorageDirectory(), "SOH");
-
-        File sohFile = new File(targetRootFolder, "soh.otr");
-        File ootFile = new File(targetRootFolder, "oot.otr");
-        File ootMqFile = new File(targetRootFolder, "oot-mq.otr");
-        File assetsFolder = new File(targetRootFolder, "assets");
-
-        deleteIfExists(sohFile);
-        deleteIfExists(ootFile);
-        deleteIfExists(ootMqFile);
-        deleteRecursiveIfExists(assetsFolder);
-    }
-
-    private void deleteIfExists(File file) {
-        if (file.exists()) {
-            if (file.delete()) {
-                Log.i("deleteAssets", "Deleted file: " + file.getAbsolutePath());
-            } else {
-                Log.w("deleteAssets", "Failed to delete file: " + file.getAbsolutePath());
-            }
-        } else {
-            Log.i("deleteAssets", "File not found (skipped): " + file.getAbsolutePath());
-        }
-    }
-
-    private void deleteRecursiveIfExists(File dir) {
-        if (dir.exists()) {
-            deleteRecursive(dir);
-            Log.i("deleteAssets", "Deleted directory: " + dir.getAbsolutePath());
-        } else {
-            Log.i("deleteAssets", "Directory not found (skipped): " + dir.getAbsolutePath());
-        }
-    }
-
-    private void deleteRecursive(File fileOrDirectory) {
-        if (fileOrDirectory.isDirectory()) {
-            File[] children = fileOrDirectory.listFiles();
-            if (children != null) {
-                for (File child : children) {
-                    deleteRecursive(child);
-                }
-            }
-        }
-        fileOrDirectory.delete();
-    }
-
 
 
     // Check if storage permission is granted
@@ -208,10 +160,10 @@ public class MainActivity extends SDLActivity{
     private void setupFilesInBackground(File targetRootFolder) {
 
         File sourceOldRoot = getExternalFilesDir(null);
-        File sourceSavesDir = new File(sourceOldRoot, "Save"); // how to tell if there's anything to migrate
+        File sourceSavesDir = sourceOldRoot != null ? new File(sourceOldRoot, "Save") : null;
 
         // === Migration from old Android/data/.../files/ directory ===
-        if (sourceOldRoot != null && sourceSavesDir.isDirectory()) {
+        if (sourceOldRoot != null && sourceSavesDir != null && sourceSavesDir.isDirectory()) {
             Log.i("setupFiles", "Migrating old data from: " + sourceOldRoot.getAbsolutePath());
 
             File[] sourceFiles = sourceOldRoot.listFiles();
@@ -219,7 +171,7 @@ public class MainActivity extends SDLActivity{
                 for (File file : sourceFiles) {
                     String name = file.getName();
                     if (name.equals("assets") || name.equals("soh.otr") || name.equals("oot-mq.otr") || name.equals("oot.otr")) {
-                        continue; // Skip these
+                        continue; // Never migrate or overwrite these files.
                     }
 
                     File dest = new File(targetRootFolder, name);
@@ -239,7 +191,7 @@ public class MainActivity extends SDLActivity{
             runOnUiThread(() -> Toast.makeText(this, "Save data migrated", Toast.LENGTH_SHORT).show());
         }
 
-        // Ensure root folder exists
+        // Ensure root folder exists.
         if (!targetRootFolder.exists()) {
             if (!targetRootFolder.mkdirs()) {
                 Log.e("setupFiles", "Failed to create root folder");
@@ -249,72 +201,74 @@ public class MainActivity extends SDLActivity{
             }
         }
 
-        // Always ensure mods folder exists
+        // Always ensure mods folder exists.
         File targetModsDir = new File(targetRootFolder, "mods");
-        if (!targetModsDir.exists()) {
-            targetModsDir.mkdirs();
+        if (!targetModsDir.exists() && !targetModsDir.mkdirs()) {
+            Log.w("setupFiles", "Failed to create mods folder");
         }
 
-        // Copy assets/ from internal
+        // Copy packaged assets only when the folder is missing or empty.
         File targetAssetsDir = new File(targetRootFolder, "assets");
-        try {
-            if (!targetAssetsDir.exists()) {
-                targetAssetsDir.mkdirs();
+        boolean assetsMissing = !targetAssetsDir.exists()
+                || targetAssetsDir.listFiles() == null
+                || targetAssetsDir.listFiles().length == 0;
+
+        if (assetsMissing) {
+            try {
+                if (!targetAssetsDir.exists() && !targetAssetsDir.mkdirs()) {
+                    throw new IOException("Failed to create assets folder");
+                }
+
+                AssetCopyUtil.copyAssetsToExternal(this, "assets", targetAssetsDir.getAbsolutePath());
+                runOnUiThread(() -> Toast.makeText(this, "Assets copied", Toast.LENGTH_SHORT).show());
+            } catch (IOException e) {
+                Log.e("setupFiles", "Failed to copy assets", e);
+                runOnUiThread(() -> Toast.makeText(this, "Error copying assets", Toast.LENGTH_LONG).show());
             }
-            AssetCopyUtil.copyAssetsToExternal(this, "assets", targetAssetsDir.getAbsolutePath());
-            runOnUiThread(() -> Toast.makeText(this, "Assets copied", Toast.LENGTH_SHORT).show());
-        } catch (IOException e) {
-            e.printStackTrace();
-            runOnUiThread(() -> Toast.makeText(this, "Error copying assets", Toast.LENGTH_LONG).show());
         }
 
-        // Copy soh.otr from internal assets
+        // Copy the packaged soh.otr only when it is missing.
         File targetOtrFile = new File(targetRootFolder, "soh.otr");
-        try (InputStream in = getAssets().open("soh.otr");
-             OutputStream out = new FileOutputStream(targetOtrFile)) {
+        if (!targetOtrFile.exists()) {
+            try (InputStream in = getAssets().open("soh.otr");
+                 OutputStream out = new FileOutputStream(targetOtrFile)) {
 
-            byte[] buffer = new byte[1024];
-            int read;
-            while ((read = in.read(buffer)) != -1) {
-                out.write(buffer, 0, read);
+                byte[] buffer = new byte[4096];
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                }
+
+                runOnUiThread(() -> Toast.makeText(this, "soh.otr copied", Toast.LENGTH_SHORT).show());
+            } catch (IOException e) {
+                Log.e("setupFiles", "Failed to copy soh.otr", e);
+                runOnUiThread(() -> Toast.makeText(this, "Error copying soh.otr", Toast.LENGTH_LONG).show());
             }
-
-            runOnUiThread(() -> Toast.makeText(this, "soh.otr copied", Toast.LENGTH_SHORT).show());
-
-        } catch (IOException e) {
-            e.printStackTrace();
-            runOnUiThread(() -> Toast.makeText(this, "Error copying soh.otr", Toast.LENGTH_LONG).show());
         }
 
-// Copy the default configuration only if the user does not already have one.
-File targetConfigFile = new File(targetRootFolder, "shipofharkinian.json");
+        // Copy the default configuration only when it is missing.
+        File targetConfigFile = new File(targetRootFolder, "shipofharkinian.json");
+        if (!targetConfigFile.exists()) {
+            try (InputStream in = getAssets().open("shipofharkinian.json");
+                 OutputStream out = new FileOutputStream(targetConfigFile)) {
 
-if (!targetConfigFile.exists()) {
-    try (InputStream in = getAssets().open("shipofharkinian.json");
-         OutputStream out = new FileOutputStream(targetConfigFile)) {
+                byte[] buffer = new byte[4096];
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                }
 
-        byte[] buffer = new byte[4096];
-        int read;
-
-        while ((read = in.read(buffer)) != -1) {
-            out.write(buffer, 0, read);
-        }
-
-        Log.i("setupFiles", "Default shipofharkinian.json copied");
-
-    } catch (IOException e) {
-        Log.e("setupFiles", "Failed to copy default shipofharkinian.json", e);
-
-        runOnUiThread(() ->
-                Toast.makeText(
+                Log.i("setupFiles", "Default shipofharkinian.json copied");
+            } catch (IOException e) {
+                Log.e("setupFiles", "Failed to copy default shipofharkinian.json", e);
+                runOnUiThread(() -> Toast.makeText(
                         this,
                         "Error copying default configuration",
                         Toast.LENGTH_LONG
-                ).show()
-        );
-    }
-}
-        
+                ).show());
+            }
+        }
+
         setupLatch.countDown();
     }
 
