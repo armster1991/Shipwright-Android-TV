@@ -667,10 +667,10 @@ if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
 
         if (leftShoulderPressed && rightShoulderPressed && !enhancementsComboActive) {
             enhancementsComboActive = true;
-            setButton(ControllerButtons.BUTTON_BACK, true);
+            SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_BACK);
         } else if (!leftShoulderPressed && enhancementsComboActive) {
             enhancementsComboActive = false;
-            setButton(ControllerButtons.BUTTON_BACK, false);
+            SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_BACK);
         }
 
         return super.dispatchKeyEvent(event);
@@ -681,10 +681,10 @@ if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
 
         if (leftShoulderPressed && rightShoulderPressed && !enhancementsComboActive) {
             enhancementsComboActive = true;
-            setButton(ControllerButtons.BUTTON_BACK, true);
+            SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_BACK);
         } else if (!rightShoulderPressed && enhancementsComboActive) {
             enhancementsComboActive = false;
-            setButton(ControllerButtons.BUTTON_BACK, false);
+            SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_BACK);
         }
 
         return super.dispatchKeyEvent(event);
