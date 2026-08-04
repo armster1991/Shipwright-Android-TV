@@ -45,6 +45,9 @@ public class MainActivity extends SDLActivity{
     private static final CountDownLatch setupLatch = new CountDownLatch(1);
     private boolean leftStickPressed = false;
     private boolean rightStickPressed = false;
+    private boolean leftShoulderPressed = false;
+    private boolean rightShoulderPressed = false;
+    private boolean enhancementsComboActive = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -658,10 +661,33 @@ if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
     return super.dispatchKeyEvent(event);
 }
 
-    // Botão HOME/PS: abre o menu de melhorias.
-    if (keyCode == KeyEvent.KEYCODE_BUTTON_MODE) {
-        setButton(ControllerButtons.BUTTON_BACK, pressed);
-        return true;
+    // L1 + R1: abre o menu de melhorias.
+    if (keyCode == KeyEvent.KEYCODE_BUTTON_L1) {
+        leftShoulderPressed = pressed;
+
+        if (leftShoulderPressed && rightShoulderPressed && !enhancementsComboActive) {
+            enhancementsComboActive = true;
+            setButton(ControllerButtons.BUTTON_BACK, true);
+        } else if (!leftShoulderPressed && enhancementsComboActive) {
+            enhancementsComboActive = false;
+            setButton(ControllerButtons.BUTTON_BACK, false);
+        }
+
+        return super.dispatchKeyEvent(event);
+    }
+
+    if (keyCode == KeyEvent.KEYCODE_BUTTON_R1) {
+        rightShoulderPressed = pressed;
+
+        if (leftShoulderPressed && rightShoulderPressed && !enhancementsComboActive) {
+            enhancementsComboActive = true;
+            setButton(ControllerButtons.BUTTON_BACK, true);
+        } else if (!rightShoulderPressed && enhancementsComboActive) {
+            enhancementsComboActive = false;
+            setButton(ControllerButtons.BUTTON_BACK, false);
+        }
+
+        return super.dispatchKeyEvent(event);
     }
 
     // Registra o estado do L3, mas mantém seu funcionamento normal.
