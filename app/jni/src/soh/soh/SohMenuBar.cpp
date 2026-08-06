@@ -369,7 +369,7 @@ void DrawSettingsMenu() {
                     CVarGetInteger("gMatchRefreshRate", 0) && LUS::Context::GetInstance()->GetWindow()->GetWindowBackend() != LUS::WindowBackend::DX11;
                 UIWidgets::PaddedEnhancementSliderInt(
                     (currentFps == 20) ? "FPS: Original (20)" : "FPS: %d",
-                    "##FPSInterpolation", "gInterpolationFPS", minFps, maxFps, "", 20, true, true, false, matchingRefreshRate);
+                    "##FPSInterpolation", "gInterpolationFPS", minFps, maxFps, "", 30, true, true, false, matchingRefreshRate);
             #endif
                 if (LUS::Context::GetInstance()->GetWindow()->GetWindowBackend() == LUS::WindowBackend::DX11) {
                     UIWidgets::Tooltip(

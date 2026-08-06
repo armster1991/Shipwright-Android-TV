@@ -1,0 +1,6 @@
+{
+    "CVars": {
+        "gFreeCamera": 1,
+        "gInterpolationFPS": 30
+    }
+}

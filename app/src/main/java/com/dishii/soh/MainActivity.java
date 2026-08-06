@@ -23,6 +23,7 @@ import android.widget.Button;
 import android.widget.FrameLayout;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
+import android.view.KeyEvent;
 import android.view.View;
 import android.widget.ImageView;
 import android.util.Log;
@@ -33,6 +34,12 @@ public class MainActivity extends SDLActivity{
     private static final int STORAGE_PERMISSION_REQUEST_CODE = 1;
 
     SharedPreferences preferences;
+
+    private boolean leftStickPressed = false;
+    private boolean rightStickPressed = false;
+    private boolean leftShoulderPressed = false;
+    private boolean rightShoulderPressed = false;
+    private boolean enhancementsComboActive = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,30 +63,9 @@ public class MainActivity extends SDLActivity{
         int storedVersion = preferences.getInt("appVersion", 1);
 
         if (currentVersion > storedVersion) {
-            deleteOutdatedAssets();
+            // Never delete user files or generated OTR files during an app update/reinstall.
             preferences.edit().putInt("appVersion", currentVersion).apply();
         }
-    }
-
-    private void deleteOutdatedAssets(){
-        File externalSohFile = new File(getExternalFilesDir(null), "soh.otr");
-        externalSohFile.delete();
-        File externalOotFile = new File(getExternalFilesDir(null), "oot.otr");
-        externalOotFile.delete();
-        File externalOotMqFile = new File(getExternalFilesDir(null), "oot-mq.otr");
-        externalOotMqFile.delete();
-        File externalAssetsFolder = new File(getExternalFilesDir(null), "assets");
-        deleteRecursive(externalAssetsFolder);
-
-    }
-
-    private void deleteRecursive(File fileOrDirectory) {
-        if (fileOrDirectory.isDirectory()) {
-            for (File child : fileOrDirectory.listFiles()) {
-                deleteRecursive(child);
-            }
-        }
-        fileOrDirectory.delete();
     }
 
 
@@ -135,6 +121,26 @@ public class MainActivity extends SDLActivity{
             try {
                 InputStream in = getAssets().open("soh.otr");
                 OutputStream out = new FileOutputStream(externalSohOtrFile);
+
+                byte[] buffer = new byte[1024];
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                }
+
+                in.close();
+                out.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        //Copy default shipofharkinian.json configuration file if it doesn't exist yet
+        File externalConfigFile = new File(getExternalFilesDir(null), "shipofharkinian.json");
+        if (!externalConfigFile.exists()) {
+            try {
+                InputStream in = getAssets().open("shipofharkinian.json");
+                OutputStream out = new FileOutputStream(externalConfigFile);
 
                 byte[] buffer = new byte[1024];
                 int read;
@@ -420,6 +426,78 @@ public class MainActivity extends SDLActivity{
 
 
 
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        int keyCode = event.getKeyCode();
+        boolean pressed = event.getAction() == KeyEvent.ACTION_DOWN;
+
+        // D-pad para cima também aciona C-Up/Navi.
+        if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+            setAxis(
+                    ControllerButtons.AXIS_RY,
+                    pressed ? Short.MIN_VALUE : (short) 0
+            );
+
+            // Continua enviando o D-pad para cima normalmente ao SDL.
+            return super.dispatchKeyEvent(event);
+        }
+
+        // L1 + R1: abre o menu de melhorias.
+        if (keyCode == KeyEvent.KEYCODE_BUTTON_L1) {
+            leftShoulderPressed = pressed;
+
+            if (leftShoulderPressed && rightShoulderPressed && !enhancementsComboActive) {
+                enhancementsComboActive = true;
+                SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_BACK);
+            } else if (!leftShoulderPressed && enhancementsComboActive) {
+                enhancementsComboActive = false;
+                SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_BACK);
+            }
+
+            return super.dispatchKeyEvent(event);
+        }
+
+        if (keyCode == KeyEvent.KEYCODE_BUTTON_R1) {
+            rightShoulderPressed = pressed;
+
+            if (leftShoulderPressed && rightShoulderPressed && !enhancementsComboActive) {
+                enhancementsComboActive = true;
+                SDLActivity.onNativeKeyDown(KeyEvent.KEYCODE_BACK);
+            } else if (!rightShoulderPressed && enhancementsComboActive) {
+                enhancementsComboActive = false;
+                SDLActivity.onNativeKeyUp(KeyEvent.KEYCODE_BACK);
+            }
+
+            return super.dispatchKeyEvent(event);
+        }
+
+        // Registra o estado do L3, mas mantém seu funcionamento normal.
+        if (keyCode == KeyEvent.KEYCODE_BUTTON_THUMBL) {
+            leftStickPressed = pressed;
+
+            if (pressed && rightStickPressed) {
+                finishAndRemoveTask();
+                return true;
+            }
+
+            return super.dispatchKeyEvent(event);
+        }
+
+        // Registra o estado do R3, mas mantém seu funcionamento normal.
+        if (keyCode == KeyEvent.KEYCODE_BUTTON_THUMBR) {
+            rightStickPressed = pressed;
+
+            if (pressed && leftStickPressed) {
+                finishAndRemoveTask();
+                return true;
+            }
+
+            return super.dispatchKeyEvent(event);
+        }
+
+        return super.dispatchKeyEvent(event);
+    }
 
     // Function to set joystick movement with reset to center when not touched
     private void setupJoystick(FrameLayout joystickLayout, ImageView joystickKnob, boolean isLeft) {
