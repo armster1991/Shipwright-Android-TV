@@ -667,7 +667,7 @@ std::string Extractor::Mkdtemp() {
 #ifndef __ANDROID__
     std::string temp_dir = std::filesystem::temp_directory_path().string();
 #else
-    std::string temp_dir = SDL_AndroidGetExternalStoragePath();
+    std::string temp_dir = "/storage/emulated/0/SOH";
 #endif
     // create 6 random alphanumeric characters
     static const char charset[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
