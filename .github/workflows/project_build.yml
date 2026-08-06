@@ -42,8 +42,8 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      - name: Build release APK
-        run: ./gradlew assembleRelease
+      - name: Build debug APK (auto-signed with debug key)
+        run: ./gradlew assembleDebug
         env:
           ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/26.0.10792818
 
@@ -52,6 +52,6 @@ jobs:
         with:
           name: soh-v1.3.0-firestick-fix
           path: |
-            app/build/outputs/apk/release/*.apk
+            app/build/outputs/apk/debug/*.apk
 
 ###############################################################################
