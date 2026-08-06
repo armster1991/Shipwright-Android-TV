@@ -18,6 +18,7 @@ import android.Manifest;
 import android.content.pm.PackageManager;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import android.os.Build;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -68,30 +69,56 @@ public class MainActivity extends SDLActivity{
         }
     }
 
+    // Root "SOH" folder at the root of device storage (e.g. /storage/emulated/0/SOH)
+    private File getRootFolder() {
+        File root = new File(Environment.getExternalStorageDirectory(), "SOH");
+        if (!root.exists()) {
+            root.mkdirs();
+        }
+        return root;
+    }
+
 
 
     // Check if storage permission is granted
     private boolean hasStoragePermission() {
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
-                == PackageManager.PERMISSION_GRANTED &&
-                ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                        == PackageManager.PERMISSION_GRANTED;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Android 11+: precisamos de acesso total ("All files access") pra escrever em /sdcard/SOH
+            return Environment.isExternalStorageManager();
+        } else {
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                    == PackageManager.PERMISSION_GRANTED &&
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                            == PackageManager.PERMISSION_GRANTED;
+        }
     }
 
     // Request storage permission
     private void requestStoragePermission() {
-        ActivityCompat.requestPermissions(this,
-                new String[]{Manifest.permission.READ_EXTERNAL_STORAGE,
-                        Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                STORAGE_PERMISSION_REQUEST_CODE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                intent.setData(Uri.parse("package:" + getPackageName()));
+                startActivityForResult(intent, STORAGE_PERMISSION_REQUEST_CODE);
+            } else {
+                doVersionCheck();
+                setupFiles();
+            }
+        } else {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.READ_EXTERNAL_STORAGE,
+                            Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                    STORAGE_PERMISSION_REQUEST_CODE);
+        }
     }
 
-    // Handle permission request result
+    // Handle permission request result (Android 10 e anteriores)
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == STORAGE_PERMISSION_REQUEST_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                doVersionCheck();
                 setupFiles();
             } else {
                 // Permission denied, handle accordingly (e.g., show a message)
@@ -100,8 +127,10 @@ public class MainActivity extends SDLActivity{
     }
 
     private void setupFiles(){
+        File rootFolder = getRootFolder();
+
         //Copy assets folder for rom extraction
-        File externalAssetsDir = new File(getExternalFilesDir(null), "assets");
+        File externalAssetsDir = new File(rootFolder, "assets");
         if (!externalAssetsDir.exists()) {
             try {
                 externalAssetsDir.mkdirs();
@@ -112,11 +141,11 @@ public class MainActivity extends SDLActivity{
         }
 
         //Create empty mods folder
-        File externalModsDir = new File(getExternalFilesDir(null), "mods");
+        File externalModsDir = new File(rootFolder, "mods");
         externalModsDir.mkdirs();
 
         //Copy soh.otr
-        File externalSohOtrFile = new File(getExternalFilesDir(null), "soh.otr");
+        File externalSohOtrFile = new File(rootFolder, "soh.otr");
         if (!externalSohOtrFile.exists()) {
             try {
                 InputStream in = getAssets().open("soh.otr");
@@ -136,7 +165,7 @@ public class MainActivity extends SDLActivity{
         }
 
         //Copy default shipofharkinian.json configuration file if it doesn't exist yet
-        File externalConfigFile = new File(getExternalFilesDir(null), "shipofharkinian.json");
+        File externalConfigFile = new File(rootFolder, "shipofharkinian.json");
         if (!externalConfigFile.exists()) {
             try {
                 InputStream in = getAssets().open("shipofharkinian.json");
@@ -165,7 +194,7 @@ public class MainActivity extends SDLActivity{
         if (requestCode == 0 && resultCode == RESULT_OK) {
             Uri selectedFileUri = data.getData();
             String fileName = "ZELOOTD.z64";
-            File destinationDirectory = getExternalFilesDir(null); // The second argument can specify a subdirectory, or you can pass null to use the root directory.
+            File destinationDirectory = getRootFolder(); // Pasta "SOH" na raiz do armazenamento
             File destinationFile = new File(destinationDirectory, fileName);
 
             if (destinationDirectory != null) {
@@ -186,6 +215,16 @@ public class MainActivity extends SDLActivity{
                 }
             }
             nativeHandleSelectedFile(destinationFile.getPath());
+        } else if (requestCode == STORAGE_PERMISSION_REQUEST_CODE) {
+            // Retorno da tela "Permitir acesso a todos os arquivos" (Android 11+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                if (Environment.isExternalStorageManager()) {
+                    doVersionCheck();
+                    setupFiles();
+                } else {
+                    // Permissão negada, o app não vai conseguir escrever na pasta SOH
+                }
+            }
         }
     }
 
